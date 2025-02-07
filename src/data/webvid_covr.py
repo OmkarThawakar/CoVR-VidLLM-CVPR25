@@ -294,7 +294,7 @@ class WebVidCoVRDataset(Dataset):
         reference_vid = self.frame_loader(reference_pth)
 
         caption = pre_caption(ann["edit"], self.max_words)
-        video_prompt = str(ann['txt1'])
+        video_desc = str(ann['txt1'])
 
         target_pth = str(ann["path2"])
         target_emb = torch.load(target_pth).cpu()
@@ -311,4 +311,4 @@ class WebVidCoVRDataset(Dataset):
             vid_scores = (vid_scores / 0.1).softmax(dim=0)
             target_emb = torch.einsum("f,fe->e", vid_scores, target_emb)
 
-        return reference_vid, video_prompt, target_emb, caption, index
+        return reference_vid, video_desc, target_emb, caption, index

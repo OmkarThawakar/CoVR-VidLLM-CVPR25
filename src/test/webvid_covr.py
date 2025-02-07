@@ -17,9 +17,9 @@ class TestWebVidCoVR:
     def encode_prompt(self, model, prompt):
         prompt_tokens = model.tokenizer(
             prompt,
-            padding="max_length",
+            padding="longest",
             truncation=True,
-            max_length=35,
+            max_length=64,
             return_tensors="pt",
         ).to(model.text_encoder.device)
         

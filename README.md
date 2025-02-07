@@ -7,7 +7,7 @@ This repository contains the code for CoVR-VidLLM workshop CVPR-2025.
 
 Please visit our [Workshop Page]() for more details.
 
-This repository contains: 
+The repository structure: 
 
 ```markdown
 📦 covr
@@ -30,7 +30,7 @@ conda create --name covr
 conda activate covr
 ```
 
-To install the necessary packages, you can use the provided requirements.txt file:
+To install the necessary packages, use requirements.txt file:
 ```bash
 python -m pip install -r requirements.txt
 ```
@@ -122,12 +122,6 @@ python tools/embs/save_blip_embs_vids.py --video_dir datasets/WebVid/2M/train --
 # This will compute the BLIP embeddings for the WebVid-CoVR-Test videos.
 python tools/embs/save_blip_embs_vids.py --video_dir datasets/WebVid/8M/train --todo_ids annotation/webvid-covr/webvid8m-covr_test.csv 
 
-# This will compute the BLIP embeddings for the CIRR images.
-python tools/embs/save_blip_embs_imgs.py --image_dir datasets/CIRR/images/
-
-# This will compute the BLIP embeddings for FashionIQ images.
-python tools/embs/save_blip_embs_imgs.py --image_dir datasets/fashion-iq/images/
-
 # This will compute the BLIP embeddings for the WebVid-CoVR modifications text. Only needed if using the caption retrieval loss (model/loss_terms=si_ti+si_tc).
 python tools/embs/save_blip_embs_txts.py annotation/webvid-covr/webvid2m-covr_train.csv datasets/WebVid/2M/blip-vid-embs-large-all
 ```
@@ -160,7 +154,7 @@ python tools/embs/save_blip2_embs_txts.py annotation/webvid-covr/webvid2m-covr_t
 &emsp; 
 </details> -->
 
-Evaluating
+### Evaluating
 
 The command to evaluate is the folowing:
 ```bash

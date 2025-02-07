@@ -41,8 +41,6 @@ class BLIP_Base(nn.Module):
         """
         super().__init__()
 
-        print("I am BLIP Only")
-
         self.visual_encoder, vision_width = create_vit(
             vit, image_size, vit_grad_ckpt, vit_ckpt_layer
         )

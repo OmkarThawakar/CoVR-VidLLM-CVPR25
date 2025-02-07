@@ -31,8 +31,6 @@ class BLIPCir(nn.Module):
         """
         super().__init__()
 
-        print("I am BLIP_CIR Only")
-
         self.loss = loss
 
         self.visual_encoder, vision_width = create_vit(

@@ -17,4 +17,4 @@ webvid_covr_text:
   emb_dirs: ${paths.datasets_dir}/WebVid/8M/blip-vid-embs-${model.model.vit}-all
 
   test:
-    _target_: src.test.webvid_covr_exp.TestWebVidCoVRTextOnly
+    _target_: src.test.webvid_covr_text.TestWebVidCoVRTextOnly
