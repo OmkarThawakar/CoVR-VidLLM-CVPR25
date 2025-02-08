@@ -15,79 +15,46 @@ from src.tools.utils import print_dist
 Image.MAX_IMAGE_PIXELS = None  # Disable DecompressionBombWarning
 
 
-class WebVidCoVRDataModule(LightningDataModule):
+class WebVidCoVRTestDataModule(LightningDataModule):
     def __init__(
         self,
         batch_size: int,
+        annotation: str,
+        vid_dirs: str,
         num_workers: int = 4,
         pin_memory: bool = True,
-        annotation: dict = {"train": "", "val": ""},
-        vid_dirs: dict = {"train": "", "val": ""},
-        emb_dirs: dict = {"train": "", "val": ""},
-        image_size: int = 384,
-        emb_pool: str = "query",
-        iterate: str = "pth2",
+        image_size: int = 1024,
+        # Use iterate key "idx" by default for testing as well.
+        iterate: str = "idx",
         vid_query_method: str = "middle",
         vid_frames: int = 1,
-        **kwargs,  # type: ignore
-    ) : # -> None
+        **kwargs,
+    ):
         super().__init__()
-        # this line allows to access init params with 'self.hparams' attribute
-        # also ensures init params will be stored in ckpt
         self.save_hyperparameters(logger=False)
 
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.pin_memory = pin_memory
-        self.emb_pool = emb_pool
         self.iterate = iterate
         self.vid_query_method = vid_query_method
         self.vid_frames = vid_frames
 
-        self.transform_train = transform_train(image_size)
         self.transform_test = transform_test(image_size)
 
-        self.data_train = WebVidCoVRDataset(
-            transform=self.transform_train,
-            annotation=annotation["train"],
-            vid_dir=vid_dirs["train"],
-            emb_dir=emb_dirs["train"],
-            split="train",
-            emb_pool=self.emb_pool,
-            iterate=self.iterate,
-            vid_query_method=self.vid_query_method,
-            vid_frames=self.vid_frames,
-        )
-        self.data_val = WebVidCoVRDataset(
+        self.data_test = WebVidCoVRDataset(
             transform=self.transform_test,
-            annotation=annotation["val"],
-            vid_dir=vid_dirs["val"],
-            emb_dir=emb_dirs["val"],
-            split="val",
-            emb_pool=self.emb_pool,
+            annotation=annotation,
+            vid_dir=vid_dirs,
+            split="test",
             iterate=self.iterate,
             vid_query_method=self.vid_query_method,
             vid_frames=self.vid_frames,
         )
 
-    def prepare_data(self):
-        # things to do on 1 GPU/TPU (not on every GPU/TPU in DDP)
-        # download data, pre-process, split, save to disk, etc...
-        pass
-
-    def train_dataloader(self):
+    def test_dataloader(self):
         return DataLoader(
-            dataset=self.data_train,
-            batch_size=self.batch_size,
-            num_workers=self.num_workers,
-            pin_memory=self.pin_memory,
-            shuffle=True,
-            drop_last=True,
-        )
-
-    def val_dataloader(self):
-        return DataLoader(
-            dataset=self.data_val,
+            dataset=self.data_test,
             batch_size=self.batch_size,
             num_workers=self.num_workers,
             pin_memory=self.pin_memory,
@@ -96,7 +63,114 @@ class WebVidCoVRDataModule(LightningDataModule):
         )
 
 
-class WebVidCoVRTestDataModule(LightningDataModule):
+class WebVidCoVRDataset(Dataset):
+    def __init__(
+        self,
+        transform,
+        annotation: str,
+        vid_dir: str,
+        split: str,
+        max_words: int = 30,
+        iterate: str = "idx",
+        vid_query_method: str = "middle",
+        vid_frames: int = 1,
+    ):
+        super().__init__()
+
+        self.transform = transform
+
+        self.annotation_pth = annotation
+        assert Path(annotation).exists(), f"Annotation file {annotation} does not exist"
+
+        self.df = pd.read_csv(annotation)
+
+        self.vid_dir = Path(vid_dir)
+        assert self.vid_dir.exists(), f"Image directory {self.vid_dir} does not exist"
+
+        # Process video paths from the provided video directory
+        vid_pths = self.vid_dir.glob("*/*.mp4")
+        id2vidpth = {vid_pth.parent.stem + "/" + vid_pth.stem: vid_pth for vid_pth in vid_pths}
+        self.df["path1"] = self.df["pth1"].apply(lambda x: id2vidpth.get(x, None))
+
+        # Count unique missing video paths
+        missing_pth1 = self.df[self.df["path1"].isna()]["pth1"].unique().tolist()
+        missing_pth1.sort()
+        total_pth1 = self.df["pth1"].nunique()
+
+        if len(missing_pth1) > 0:
+            print_dist(
+                f"Missing {len(missing_pth1)} pth1's ({len(missing_pth1)/total_pth1 * 100:.1f}%), saving them to missing_pth1-{split}.txt"
+            )
+            if split == "test":
+                raise ValueError(
+                    f"Missing {len(missing_pth1)} pth1's ({len(missing_pth1)/total_pth1 * 100:.1f}%) in test split"
+                )
+            write_txt(missing_pth1, f"missing_pth1-{split}.txt")
+
+        # Remove missing video paths
+        self.df = self.df[self.df["path1"].notna()]
+        self.df.reset_index(drop=True, inplace=True)
+
+        self.max_words = max_words
+
+        # Remove any processing related to target embeddings (pth2) and associated columns
+
+        if iterate in ["idx", "triplets"]:
+            iterate = "idx"
+            self.df["idx"] = self.df.index
+        self.iterate = iterate
+        self.target_txts = self.df[iterate].unique()
+        assert iterate in self.df.columns, f"{iterate} not in {Path(annotation).stem}"
+        self.df.sort_values(iterate, inplace=True)
+        self.df.reset_index(drop=True, inplace=True)
+        self.df["int1"] = self.df["pth1"].apply(lambda x: id2int(x, sub="0"))
+        self.pairid2ref = self.df["int1"].to_dict()
+        assert (
+            self.df["int1"].nunique() == self.df["pth1"].nunique()
+        ), "int1 is not unique"
+        # Removed any int2 / target embedding related processing
+
+        self.df.set_index(iterate, inplace=True)
+        self.df[iterate] = self.df.index
+
+        if split == "test":
+            assert (
+                len(self.target_txts) == self.df.shape[0]
+            ), "Test split should have one caption per row"
+
+        assert vid_query_method in [
+            "middle",
+            "random",
+            "sample",
+        ], f"Invalid vid_query_method: {vid_query_method}, must be one of middle, random, or sample"
+        self.frame_loader = FrameLoader(
+            transform=self.transform, method=vid_query_method, frames_video=vid_frames
+        )
+
+    def __len__(self) -> int:
+        return len(self.target_txts)
+
+    def __getitem__(self, index):
+        target_txt = self.target_txts[index]
+        ann = self.df.loc[target_txt]
+        if ann.ndim > 1:
+            ann = ann.sample()
+            ann = ann.iloc[0]
+
+        reference_pth = str(ann["path1"])
+        reference_vid = self.frame_loader(reference_pth)
+
+        caption = pre_caption(ann["edit"], self.max_words)
+        video_desc = str(ann["txt1"])
+
+        # Removed all code related to loading and processing the target embedding.
+        return reference_vid, video_desc, caption, index
+
+
+
+
+
+class WebVidCoVREvalDataModule(LightningDataModule):
     def __init__(
         self,
         batch_size: int,
@@ -125,7 +199,7 @@ class WebVidCoVRTestDataModule(LightningDataModule):
 
         self.transform_test = transform_test(image_size)
 
-        self.data_test = WebVidCoVRDataset(
+        self.data_test = WebVidCoVREvalDataset(
             transform=self.transform_test,
             annotation=annotation,
             vid_dir=vid_dirs,
@@ -148,7 +222,7 @@ class WebVidCoVRTestDataModule(LightningDataModule):
         )
 
 
-class WebVidCoVRDataset(Dataset):
+class WebVidCoVREvalDataset(Dataset):
     def __init__(
         self,
         transform,

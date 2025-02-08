@@ -1,22 +1,17 @@
 import shutil
-
-import numpy as np
 from pathlib import Path
+import torch
 
 import hydra
 from hydra.utils import instantiate
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import DictConfig
 
-from src.tools.files import json_dump
 
 
 @hydra.main(version_base=None, config_path="configs", config_name="test")
 def main(cfg: DictConfig):
     fabric = instantiate(cfg.trainer.fabric)
     fabric.launch()
-
-    if fabric.global_rank == 0:
-        json_dump(OmegaConf.to_container(cfg, resolve=True), "hydra.json")
 
     model = instantiate(cfg.model)
     model = fabric.setup(model)
@@ -30,20 +25,13 @@ def main(cfg: DictConfig):
         test_loader = fabric.setup_dataloaders(data.test_dataloader())
 
         test = instantiate(cfg.test[dataset].test)
-        recalls, scores_q2t = test(model, test_loader, fabric=fabric)
+        query_feats = test(model, test_loader, fabric=fabric)
+        
+        suffix = "_txt_only" if cfg.test[dataset].test["_target_"] == "src.test.webvid_covr_text.TestWebVidCoVRTextOnly" else ""
 
-        suffix = "txt_only" if cfg.test[dataset].test["_target_"] == "src.test.webvid_covr_exp.TestWebVidCoVRTextOnly" else ""
-        print("Recalls: ")
-        print(recalls)
-
-        # Save scores
-        np.save(f'scores_q2t_{suffix}.npy', scores_q2t)
-        print(f"Query to Target Scores saved in {Path.cwd()} as scores_q2t_{suffix}.npy")
-
-        # Save results
-        json_dump(recalls, f"recalls_covr_{suffix}.json")
-        print(f"Recalls saved in {Path.cwd()} as recalls_covr_{suffix}.json")
-
+        # Save query features
+        torch.save(query_feats, f'query_feat{suffix}.pt')
+        print(f"Query Features saved in {Path.cwd()} as query_feat{suffix}.pt")
 
 if __name__ == "__main__":
     main()

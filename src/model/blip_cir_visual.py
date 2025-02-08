@@ -5,8 +5,8 @@ import torch.nn.functional as F
 from torch import nn
 from transformers.models.bert.configuration_bert import BertConfig
 
-from src.model.blip import create_vit, init_tokenizer, load_checkpoint
-from src.model.med import BertModel
+from src.model.blip.blip import create_vit, init_tokenizer, load_checkpoint
+from src.model.blip.med import BertModel
 from src.tools.utils import print_dist
 
 
@@ -45,7 +45,7 @@ class BLIPCirVisualOnly(nn.Module):
         self.vision_proj = nn.Linear(vision_width, embed_dim)
         self.text_proj = nn.Linear(text_width, embed_dim)
 
-        assert train_vit == True, "train_vit must be True for BLIPCirVisualOnly"
+        assert train_vit is True, "train_vit must be True for BLIPCirVisualOnly"
         self.train_vit = train_vit
 
         # Do not train text encoder
@@ -58,7 +58,8 @@ class BLIPCirVisualOnly(nn.Module):
         self.temp = 0.07
 
     def forward(self, batch, fabric):
-        ref_img, tar_feat, _, _ = batch
+        ref_img = batch["ref_img"]
+        tar_feat = batch["tar_img_feat"]
 
         device = ref_img.device
 
