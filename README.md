@@ -65,19 +65,48 @@ python tools/embs/save_blip_embs_txts.py annotation/webvid-covr/webvid2m-covr_tr
 
 ### Evaluating
 
-The command to evaluate the results:
+#### Calculating Query Features
+
+The command to calculate the query feature results for Image/Video + description:
 ```bash
-python test.py
+python test.py test=webvid-covr
 ```
 
-To evaluate the text only results:
+The command to calculate the query feature description for Image/Video Description only:
 ```bash
 python test.py test=webvid-covr_text
 ```
 
-The results will be saved in the output folder.
+The results will be saved in a torch tensor file `query_feat.pt` and `query_feat_txt_only.pt` in the output folder for Image/Video + Description and Descriptions only respectively.
+
+#### Calculating Recalls for evaluation
+
+To calculate the recalls for the query features results for Image/Video + description, execute the following command:
+```bash
+python evaluate_scores.py evaluate=webvid-covr
+```
+
+And, to calculate the recalls for the query features results for description only, execute the following command:
+```bash
+python evaluate_scores.py evaluate=webvid-covr_text
+```
+
+The recalls will be saved in a json file `recalls.json` and `recalls_txt_only.pt` in the output folder for Image/Video + Description and Descriptions only respectively.
+
+The Format of the recalls.json is as following:
+```json
+{
+  "R1": 5.26,
+  "R5": 15.79,
+  "R10": 47.37,
+  "R50": 100.0,
+  "meanR3": 22.81,
+  "meanR4": 42.11,
+  "annotation": "webvid8m-covr_test_new.csv"
+}
+```
 
 
 ## Acknowledgements
-Based on [BLIP](https://github.com/salesforce/BLIP/) and [lightning-hydra-template](https://github.com/ashleve/lightning-hydra-template/tree/main).
+Based on [CoVR](https://github.com/lucas-ventura/CoVR), [BLIP](https://github.com/salesforce/BLIP/) and [lightning-hydra-template](https://github.com/ashleve/lightning-hydra-template/tree/main).
 

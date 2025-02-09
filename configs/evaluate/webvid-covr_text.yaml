@@ -12,7 +12,7 @@ webvid_covr_text:
   num_workers: ${machine.num_workers}
 
   # Paths
-  annotation: ${paths.work_dir}/annotation/webvid-covr/webvid8m-covr_test_new.csv
+  annotation: ${paths.work_dir}/annotation/webvid-covr/webvid8m-covr_test.csv
   vid_dirs: ${paths.datasets_dir}/WebVid/8M/train
   emb_dirs: ${paths.datasets_dir}/WebVid/8M/blip-vid-embs-${model.model.vit}-all
 

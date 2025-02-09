@@ -73,6 +73,6 @@ class TestWebVidCoVR:
             )
             query_feat = query_embs.last_hidden_state[:, 0, :]
             query_feat = F.normalize(model.text_proj(query_feat), dim=-1)
-            query_feats.append(query_feat)
+            query_feats.append(query_feat.cpu())
 
         return query_feats
